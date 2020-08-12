@@ -2,17 +2,29 @@
 https://kqxty15mpg.execute-api.us-east-1.amazonaws.com/transactions
 
 ###
-
 http://127.0.0.1:3000/buyers
 
 ###
-
-http://127.0.0.1:3000/products
-
+http://127.0.0.1:3000/buyer
 
 ###
+http://127.0.0.1:3000/products
 
+###
 http://127.0.0.1:3000/transactions
 
 ###
-http://127.0.0.1:8080
+POST http://127.0.0.1:3000/transactions
+Content-Type: application/json
+
+{"Date": 11}
+
+########################################################################
+
+POST http://localhost:8080/query HTTP/1.1
+content-Type: application/json
+
+{	"query": "{ buyers(func: has(IDBuyer)){ IDBuyer NameBuyer AgeBuyer }}" }
+
+########################################################################
+

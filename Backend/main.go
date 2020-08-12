@@ -1,110 +1,142 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
+
 	"github.com/go-chi/chi"
+	// "reflect"
 )
 
-//buyer struct
-type buyer struct {
-	IDBuyer   string
-	NameBuyer string
-	AgeBuyer  int
+type dateStruct struct {
+	Date int32
 }
 
-var buyers = []buyer{
-	buyer{
-		IDBuyer:   "14627bb1",
-		NameBuyer: "Kathryne",
-		AgeBuyer:  19,
-	},
-	buyer{
-		IDBuyer:   "e431bdf3",
-		NameBuyer: "Piggy",
-		AgeBuyer:  25,
-	},
-	buyer{
-		IDBuyer:   "899efe6",
-		NameBuyer: "Clyde",
-		AgeBuyer:  46,
-	},
+func dgraphQuery(url string, query string, Date dateStruct) []byte {
+
+	var jsonStr = []byte(query)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	transactions, _ := ioutil.ReadAll(resp.Body)
+
+	return []byte(transactions)
 }
 
-//products struct
-type product struct {
-	IDProduct    string
-	NameProduct  string
-	PriceProduct int
-}
-
-var products = []product{
-	product{
-		IDProduct:    "9187f1d3",
-		NameProduct:  "Progresso Traditional Chicken Noodle Soup",
-		PriceProduct: 5978,
-	},
-	product{
-		IDProduct:    "210dea49",
-		NameProduct:  "Creamy tomato soup",
-		PriceProduct: 495,
-	},
-	product{
-		IDProduct:    "fc5de8c5",
-		NameProduct:  "Vegetable broth",
-		PriceProduct: 2939,
-	},
-}
-
-type transaction struct {
-	IDTransaction string
-	IDBuyer       string
-	IPBuyer       string
-	DevicesBuyer  []string
-	IDProducts    []string
-}
-
-var transactions = []transaction{
-	transaction{
-		IDTransaction: "#00005f29f680",
-		IDBuyer:       "d1c4a356",
-		IPBuyer:       "100.90.107.125",
-		DevicesBuyer:  []string{"linux"},
-		IDProducts:    []string{"7eeb79ef", "1f31e33b", "f42fe530"},
-	},
-	transaction{
-		IDTransaction: "#00005f29f681",
-		IDBuyer:       "e5f46faa",
-		IPBuyer:       "133.231.98.30",
-		DevicesBuyer:  []string{"windows"},
-		IDProducts:    []string{"8324b3dc", "7eeb79ef", "b1a92834"},
-	},
-	transaction{
-		IDTransaction: "#00005f29f682",
-		IDBuyer:       "8db99729",
-		IPBuyer:       "14.117.89.93",
-		DevicesBuyer:  []string{"windows"},
-		IDProducts:    []string{"f8228bd8", "ff850bc"},
-	},
+func setupCORS(w *http.ResponseWriter, req *http.Request) {
+	(*w).Header().Set("Content-Type", "application/json; charset=UTF-8")
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
 //Go application entrypoint
 func main() {
 
+	// -- Fetching data from Dgraph -- //
+
+	url := "http://localhost:8080/query"
+
+	// -- Some buyer
+	query4 := `{"query": "{ query(func: has(IDBuyer)){ IDBuyer NameBuyer AgeBuyer Transactions{ IDTransaction IPBuyer DevicesBuyer Products{ IDProduct NameProduct PriceProduct }}}}"}`
+	var jsonStr4 = []byte(query4)
+	req4, err4 := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr4))
+	req4.Header.Set("Content-Type", "application/json")
+
+	client4 := &http.Client{}
+	resp4, err4 := client4.Do(req4)
+	if err4 != nil {
+		panic(err4)
+	}
+	defer resp4.Body.Close()
+	buyer, _ := ioutil.ReadAll(resp4.Body)
+	// fmt.Println("response Body:", string(body))
+
+	// -- Api to frontend -- //
+
 	r := chi.NewRouter()
 
-	r.Get("/buyers", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(buyers)
+	// -- Buyers --//
+	r.Post("/buyers", func(w http.ResponseWriter, r *http.Request) {
+
+		setupCORS(&w, r)
+		if (*r).Method == "OPTIONS" {
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var Date dateStruct
+		err := decoder.Decode(&Date)
+		if err != nil {
+			panic(err)
+		}
+
+		query := `{"query": "{ buyers(func: has(IDBuyer)){ IDBuyer NameBuyer AgeBuyer }}"}`
+		buyers := dgraphQuery(url, query, Date)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(buyers))
 	})
 
-	r.Get("/products", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(products)
+	// -- Transactions --//
+	r.Post("/transactions", func(w http.ResponseWriter, r *http.Request) {
+
+		setupCORS(&w, r)
+		if (*r).Method == "OPTIONS" {
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var Date dateStruct
+		err := decoder.Decode(&Date)
+		if err != nil {
+			panic(err)
+		}
+		//1596931200, 1597017600
+		query := `{"query": "{ transactions(func: eq(Date, 1597017600)){ IDTransaction IPBuyer DevicesBuyer Products{ IDProduct }}}"}`
+		transactions := dgraphQuery(url, query, Date)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(transactions))
 	})
 
-	r.Get("/transactions", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(transactions)
+	// -- Products -- //
+	r.Post("/products", func(w http.ResponseWriter, r *http.Request) {
+
+		setupCORS(&w, r)
+		if (*r).Method == "OPTIONS" {
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var Date dateStruct
+		err := decoder.Decode(&Date)
+		if err != nil {
+			panic(err)
+		}
+
+		query := `{"query": "{ products(func: has(IDProduct )){ IDProduct NameProduct PriceProduct }}"}`
+		products := dgraphQuery(url, query, Date)
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(products))
+	})
+
+	r.Get("/buyer", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(buyer))
 	})
 
 	fmt.Println("Serving on port 3000 - " + time.Now().String())
