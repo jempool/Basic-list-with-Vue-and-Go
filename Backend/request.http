@@ -14,10 +14,10 @@ http://127.0.0.1:3000/products
 http://127.0.0.1:3000/transactions
 
 ###
-POST http://127.0.0.1:3000/transactions
+POST http://127.0.0.1:3000/allbydate
 Content-Type: application/json
 
-{"Date": 11}
+{"date": "1596240000"}
 
 ########################################################################
 
@@ -28,3 +28,5 @@ content-Type: application/json
 
 ########################################################################
 
+curl 'localhost:5080/assignIds?num=100'
+{"startId":"1","endId":"100"}

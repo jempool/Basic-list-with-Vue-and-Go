@@ -23,9 +23,9 @@ Vue.use(VueRouter)
     component: () => import('../views/Buyer.vue')
   },
   {
-    path: '/alldata',
-    name: 'AllData',   
-    component: () => import('../views/AllData.vue')
+    path: '/all_items',
+    name: 'All_Items',   
+    component: () => import('../views/All_Items.vue')
   }
 
 ]
