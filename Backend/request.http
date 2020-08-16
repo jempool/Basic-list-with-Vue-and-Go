@@ -1,32 +1,15 @@
 
-https://kqxty15mpg.execute-api.us-east-1.amazonaws.com/transactions
+###
+http://127.0.0.1:3000/allbuyers
 
 ###
-http://127.0.0.1:3000/buyers
+POST http://127.0.0.1:3000/buyerdetails
+Content-Type: application/json
 
-###
-http://127.0.0.1:3000/buyer
-
-###
-http://127.0.0.1:3000/products
-
-###
-http://127.0.0.1:3000/transactions
+{"data": "f9c69ac7"}
 
 ###
 POST http://127.0.0.1:3000/allbydate
 Content-Type: application/json
 
-{"date": "1596240000"}
-
-########################################################################
-
-POST http://localhost:8080/query HTTP/1.1
-content-Type: application/json
-
-{	"query": "{ buyers(func: has(IDBuyer)){ IDBuyer NameBuyer AgeBuyer }}" }
-
-########################################################################
-
-curl 'localhost:5080/assignIds?num=100'
-{"startId":"1","endId":"100"}
+{"data": "1596240000"}

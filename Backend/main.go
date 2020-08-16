@@ -9,19 +9,17 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	// "reflect"
 )
 
-type dateStruct struct {
-	Date string
+/* -- Struct for the json requests -- */
+type requestStruct struct {
+	Data string
 }
 
-/* -- Function to fetch all Buyers, Products and Transactions 
-      given a date in unix timestamp format -- */
-func dgraphQueryAll(url string, date dateStruct) []byte {	
+/* -- Function to fetch all Buyers -- */
+func dgraphQueryAllBuyers(url string) []byte {
 
-	query := `{"query": "{var(func: has(TransactionId)) @filter(eq(TransactionDate, %v)) {product1{uidp1 as uid ProductId ProductName ProductPrice} product2{uidp2 as uid ProductId ProductName ProductPrice} product3{uidp3 as uid ProductId ProductName ProductPrice} product4{uidp4 as uid ProductId ProductName ProductPrice} product5{uidp5 as uid ProductId ProductName ProductPrice}} products(func: has(ProductId)) @filter(uid(uidp1) and uid(uidp2) and uid(uidp3) and uid(uidp4) and uid(uidp5)) {ProductId ProductName ProductPrice} var(func: eq(TransactionDate, %v)) {buyer {uidb as uid}} buyers(func: has(BuyerName)) @filter(uid(uidb)) {BuyerId BuyerName BuyerAge} transactions(func: eq(TransactionDate, %v)) {TransactionId TransactionIp TransactionDevice TransactionDate}}"}`
-	query = fmt.Sprintf(query, date.Date, date.Date, date.Date)
+	query := `{"query": "{ buyers(func: has(BuyerName)) { BuyerId BuyerName BuyerAge }}"}`
 
 	var jsonStr = []byte(query)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
@@ -33,9 +31,53 @@ func dgraphQueryAll(url string, date dateStruct) []byte {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	transactions, _ := ioutil.ReadAll(resp.Body)
+	response, _ := ioutil.ReadAll(resp.Body)
 
-	return []byte(transactions)
+	return []byte(response)
+}
+
+/* -- Function to fetch all Buyers, Products and Transactions
+   given a date in unix timestamp format -- */
+func dgraphQueryAll(url string, date requestStruct) []byte {
+
+	query := `{"query": "{var(func: has(TransactionId)) @filter(eq(TransactionDate, %v)) {product1{uidp1 as uid ProductId ProductName ProductPrice} product2{uidp2 as uid ProductId ProductName ProductPrice} product3{uidp3 as uid ProductId ProductName ProductPrice} product4{uidp4 as uid ProductId ProductName ProductPrice} product5{uidp5 as uid ProductId ProductName ProductPrice}} products(func: has(ProductId)) @filter(uid(uidp1) and uid(uidp2) and uid(uidp3) and uid(uidp4) and uid(uidp5)) {ProductId ProductName ProductPrice} var(func: eq(TransactionDate, %v)) {buyer {uidb as uid}} buyers(func: has(BuyerName)) @filter(uid(uidb)) {BuyerId BuyerName BuyerAge} transactions(func: eq(TransactionDate, %v)) {TransactionId TransactionIp TransactionDevice TransactionDate}}"}`
+	query = fmt.Sprintf(query, date.Data, date.Data, date.Data)
+
+	var jsonStr = []byte(query)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	response, _ := ioutil.ReadAll(resp.Body)
+
+	return []byte(response)
+}
+
+/* -- Function to fetch all Buyers, Products and Transactions
+   given a date in unix timestamp format -- */
+func dgraphQueryBuyerDetails(url string, BuyerID string) []byte {
+
+	query := `{"query": "{purchase_history(func: eq(BuyerId,%v),orderdesc: TransactionDate){TransactionId ip as TransactionIp TransactionDevice TransactionDate product1{ProductId ProductName ProductPrice}product2{ProductId ProductName ProductPrice}product3{ProductId ProductName ProductPrice}product4{ProductId ProductName ProductPrice}product5{ProductId ProductName ProductPrice}}sameIp_someProducts(func: has(TransactionIp))@filter(eq(TransactionIp, val(ip))and NOT eq(BuyerId,%v)){buyer{BuyerName}product1{ProductName}}}"}`
+	query = fmt.Sprintf(query, BuyerID, BuyerID)
+
+	var jsonStr = []byte(query)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	response, _ := ioutil.ReadAll(resp.Body)
+
+	return []byte(response)
 }
 
 /* -- Function to allow CORS: Access-Control-Allow-Origin -- */
@@ -49,11 +91,8 @@ func setupCORS(w *http.ResponseWriter, req *http.Request) {
 /* -- Go application entrypoint -- */
 func main() {
 
-	// -- Api to frontend -- //
-
-	const url = "http://localhost:8080/query" // URL to dgraph alpha
-
 	r := chi.NewRouter()
+	const url = "http://localhost:8080/query" // URL to dgraph alpha
 
 	/* -- Handler for requests  all Buyers, Products and Transactions given
 	   a date in unix timestamp format -- */
@@ -65,44 +104,35 @@ func main() {
 		}
 
 		decoder := json.NewDecoder(r.Body)
-		var date dateStruct
+		var date requestStruct
 		err := decoder.Decode(&date)
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Println(date.Date)
-
+		// fmt.Println(date.Date)
 		response := dgraphQueryAll(url, date)
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(response))
 	})
 
-	// -- All Buyers --//
-	r.Post("/transactions", func(w http.ResponseWriter, r *http.Request) {
+	/* -- Handler for requests all Buyers -- */
+	r.Get("/allbuyers", func(w http.ResponseWriter, r *http.Request) {
 
 		setupCORS(&w, r)
 		if (*r).Method == "OPTIONS" {
 			return
 		}
 
-		decoder := json.NewDecoder(r.Body)
-		var date dateStruct
-		err := decoder.Decode(&date)
-		if err != nil {
-			panic(err)
-		}
-		//1596931200, " + Date + "
-		// query := `{"query": "{ transactions(func: eq(Date, " + Date + ")){ IDTransaction IPBuyer DevicesBuyer Products{ IDProduct }}}"}`
-		transactions := dgraphQueryAll(url, date)
+		response := dgraphQueryAllBuyers(url)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(transactions))
+		w.Write([]byte(response))
 	})
 
-	// -- Products -- //
-	r.Post("/products", func(w http.ResponseWriter, r *http.Request) {
+	/* -- Handler for requests details of a Buyer given an
+	   id in string format -- */
+	r.Post("/buyerdetails", func(w http.ResponseWriter, r *http.Request) {
 
 		setupCORS(&w, r)
 		if (*r).Method == "OPTIONS" {
@@ -110,16 +140,16 @@ func main() {
 		}
 
 		decoder := json.NewDecoder(r.Body)
-		var date dateStruct
-		err := decoder.Decode(&date)
+		var data requestStruct
+		err := decoder.Decode(&data)
 		if err != nil {
 			panic(err)
 		}
 
-		products := dgraphQueryAll(url, date)
+		reponse := dgraphQueryBuyerDetails(url, data.Data)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(products))
+		w.Write([]byte(reponse))
 	})
 
 	fmt.Println("Serving on port 3000 - " + time.Now().String())

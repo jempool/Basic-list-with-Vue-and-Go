@@ -1,12 +1,11 @@
 <template>
   <v-row id="all">
     <v-col cols="12" sm="6" md="4">
+      <br />
+      <div class="text-h5 mb-6 text-right">
+        Please select a date
+      </div>
       <!-- product component-->
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
       <v-container>
         <v-row justify="space-around">
           <v-card class="mx-auto" elevation="2" outlined>
@@ -25,6 +24,7 @@
               :headers="headersProducts"
               :items="products"
               :search="searchProduct"
+              :items-per-page="items"
             ></v-data-table>
           </v-card>
         </v-row>
@@ -44,7 +44,7 @@
         <template v-slot:activator="{ on, attrs }">
           <v-text-field
             v-model="date"
-            label="Picker in dialog"
+            label="Datepicker"
             prepend-icon="event"
             readonly
             v-bind="attrs"
@@ -60,17 +60,8 @@
         </v-date-picker>
       </v-dialog>
       <!-- /datepicker -->
-
-      <!-- button -->
-      <div class="text-center">
-        <v-btn class="ma-2" tile color="primary" dark @click="fetch"
-          >Search</v-btn
-        >
-      </div>
-      <!-- /button -->
-
       <!-- buyer component-->
-      <v-container>
+      <v-container id="buyer-container">
         <v-row justify="space-around">
           <v-card class="mx-auto" elevation="2" outlined>
             <v-card-title>
@@ -88,6 +79,7 @@
               :headers="headersBuyers"
               :items="buyers"
               :search="searchBuyer"
+              :items-per-page="items"
             ></v-data-table>
           </v-card>
         </v-row>
@@ -96,11 +88,15 @@
     </v-col>
 
     <v-col cols="12" sm="6" md="4">
+      <!-- button -->
+      <div class="text-left">
+        <v-btn class="ma-2" tile color="primary" dark @click="fetch"
+          >Search</v-btn
+        >
+      </div>
+      <!-- /button -->
       <!-- transaction component-->
-      <br />
-      <br />
-      <br />
-      <br />
+
       <br />
       <v-container id="transaction">
         <v-row justify="space-around">
@@ -120,6 +116,7 @@
               :headers="headersTransactions"
               :items="transactions"
               :search="searchTransaction"
+              :items-per-page="items"
             ></v-data-table>
           </v-card>
         </v-row>
@@ -131,7 +128,6 @@
 
 <script>
 import axios from "axios";
-import qs from "qs";
 
 export default {
   data: () => ({
@@ -139,6 +135,7 @@ export default {
     menu: false,
     modal: false,
 
+    items: 5,
     searchProduct: "",
     searchBuyer: "",
     searchTransaction: "",
@@ -166,29 +163,30 @@ export default {
     transactions: [],
   }),
   methods: {
-    fetch() {
-      console.log(this.date);
-      console.log(new Date(this.date).getTime() / 1000);
+    /* -- Fetch all Buyers, Products and Transactions given the 
+          current date in unix timestamp format -- */
+    fetch() {      
+      axios
+        .post(
+          "http://127.0.0.1:3000/allbydate",
+          JSON.stringify({
+            Data: (new Date(this.date).getTime() / 1000).toString(),
+          })
+        )
+        .then((response) => {
+          console.log(response.data.data);
+          this.buyers = JSON.parse(JSON.stringify(response.data.data.buyers));
+          this.products = JSON.parse(
+            JSON.stringify(response.data.data.products)
+          );
+          this.transactions = JSON.parse(
+            JSON.stringify(response.data.data.transactions)
+          );
+        });
     },
   },
   created() {
-    /* -- Fetch all Buyers, Products and Transactions given the 
-          current date in unix timestamp format -- */
-    axios
-      .post(
-        "http://127.0.0.1:3000/allbydate",
-        JSON.stringify({
-          Date: (new Date(this.date).getTime() / 1000).toString(),
-        })
-      )
-      .then((response) => {
-        console.log(response.data.data);
-        this.buyers = JSON.parse(JSON.stringify(response.data.data.buyers));
-        this.products = JSON.parse(JSON.stringify(response.data.data.products));
-        this.transactions = JSON.parse(
-          JSON.stringify(response.data.data.transactions)
-        );
-      });
+    this.fetch();
   },
 };
 </script>
@@ -197,4 +195,11 @@ export default {
 /* .container {
   padding: 2px 1px 1px 1px;
 } */
+#buyer-container {
+  padding-top: 20px;
+}
+
+.v-application .text-h5 {
+  margin-top: -5px;
+}
 </style>
